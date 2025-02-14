@@ -10,7 +10,7 @@ async function viteDocPlugin() {
     enforce: "post",
     config(config, { command }) {
       if (command == "build") {
-        config.base = "/docs/demo";
+        config.base = "/react-pdf-highlight/demo";
         config.build = config.build || {};
         config.build.outDir = "./docs/demo";
         config.build.emptyOutDir = true;
