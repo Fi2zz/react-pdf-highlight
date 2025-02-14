@@ -1,69 +1,87 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { isHTMLElement } from "../lib/pdfjs-dom";
-import styles from "../style/MouseSelection.module.css";
+import {
+  CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { isHTMLElement } from "../lib/pdfjs-dom.js";
 import type { LTWH } from "../types.js";
-
+import { useHighlighter, useSelectionColor } from "./Context.js";
 interface Coords {
   x: number;
   y: number;
 }
 
-interface Props {
-  onSelection: (
-    startTarget: HTMLElement,
-    boundingRect: LTWH,
-    resetSelection: () => void,
-  ) => void;
-  onDragStart: () => void;
-  onDragEnd: () => void;
-  shouldStart: (event: MouseEvent) => boolean;
+export interface MouseSelectionProps {
+  onSelection: (startTarget: HTMLElement, boundingRect: LTWH) => void;
+  onEnabled: (event: MouseEvent) => boolean;
   onChange: (isVisible: boolean) => void;
 }
-
-const getBoundingRect = (start: Coords, end: Coords): LTWH => ({
-  left: Math.min(end.x, start.x),
-  top: Math.min(end.y, start.y),
-  width: Math.abs(end.x - start.x),
-  height: Math.abs(end.y - start.y),
-});
+function getBoundingRect(start: Coords, end: Coords): LTWH {
+  return {
+    left: Math.min(end.x, start.x),
+    top: Math.min(end.y, start.y),
+    width: Math.abs(end.x - start.x),
+    height: Math.abs(end.y - start.y),
+  };
+}
 
 const shouldRender = (boundingRect: LTWH) =>
   boundingRect.width >= 1 && boundingRect.height >= 1;
 
+/**
+ * MouseSelection component handles the selection of text within a PDF viewer.
+ * It provides callbacks for when a selection is made, when selection is enabled,
+ * and when the visibility of the selection changes.
+ *
+ * @param {MouseSelectionProps} props - The properties for the MouseSelection component.
+ * @param {function} props.onSelection - Callback fired when a selection is made.
+ * @param {function} props.onEnabled - Callback to determine if selection should be enabled.
+ * @param {function} props.onChange - Callback fired when the visibility of the selection changes.
+ * @returns {JSX.Element} The MouseSelection component JSX.
+ */
 export function MouseSelection({
   onSelection,
-  onDragStart,
-  onDragEnd,
-  shouldStart,
+  onEnabled,
   onChange,
-}: Props) {
+}: MouseSelectionProps) {
   const [locked, setLocked] = useState(false);
-  const [start, setStart] = useState<Coords | null>(null);
-  const [end, setEnd] = useState<Coords | null>(null);
-
+  const [startCoords, setStartCoords] = useState<Coords | null>(null);
+  const [endCoords, setEndCoords] = useState<Coords | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const startRef = useRef(start);
+  const startRef = useRef(startCoords);
   const lockedRef = useRef(locked);
+  const { pdfViewer } = useHighlighter();
 
+  const getSelectionColor = useSelectionColor();
+  function toggleTextSelection(flag: boolean) {
+    if (!pdfViewer) return;
+    const viewer = pdfViewer.viewer! as HTMLDivElement;
+    viewer.classList.toggle("disabled-selection", flag);
+  }
   useEffect(() => {
-    startRef.current = start;
-  }, [start]);
+    startRef.current = startCoords;
+  }, [startCoords]);
 
   useEffect(() => {
     lockedRef.current = locked;
   }, [locked]);
 
+  const onDragEnd = () => toggleTextSelection(false);
+  const onDragStart = () => toggleTextSelection(true);
   const reset = useCallback(() => {
     onDragEnd();
-    setStart(null);
-    setEnd(null);
+    setStartCoords(null);
+    setEndCoords(null);
     setLocked(false);
   }, [onDragEnd]);
 
   useEffect(() => {
-    const isVisible = Boolean(start && end);
+    const isVisible = Boolean(startCoords && endCoords);
     onChange(isVisible);
-  }, [start, end, onChange]);
+  }, [startCoords, endCoords, onChange]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -91,23 +109,18 @@ export function MouseSelection({
       if (!startRef.current || lockedRef.current) {
         return;
       }
-      setEnd(containerCoords(event.pageX, event.pageY));
+      setEndCoords(containerCoords(event.pageX, event.pageY));
     };
 
     const mouseDownHandler = (event: MouseEvent) => {
-      if (!shouldStart(event)) {
-        reset();
-        return;
-      }
-
+      if (!onEnabled(event)) return;
       const startTarget = event.target as HTMLElement;
       if (!(startTarget instanceof Element) || !isHTMLElement(startTarget)) {
         return;
       }
-
       onDragStart();
-      setStart(containerCoords(event.pageX, event.pageY));
-      setEnd(null);
+      setStartCoords(containerCoords(event.pageX, event.pageY));
+      setEndCoords(null);
       setLocked(false);
 
       const mouseUpHandler = (event: Event) => {
@@ -122,7 +135,6 @@ export function MouseSelection({
 
         const endCoords = containerCoords(event.pageX, event.pageY);
         const boundingRect = getBoundingRect(currentStart, endCoords);
-
         if (
           !(event.target instanceof Element) ||
           !isHTMLElement(event.target) ||
@@ -133,10 +145,10 @@ export function MouseSelection({
           return;
         }
 
-        setEnd(endCoords);
+        setEndCoords(endCoords);
         setLocked(true);
 
-        onSelection(startTarget, boundingRect, reset);
+        onSelection(startTarget, boundingRect);
         onDragEnd();
       };
 
@@ -148,21 +160,31 @@ export function MouseSelection({
 
     container.addEventListener("mousemove", mouseMoveHandler);
     container.addEventListener("mousedown", mouseDownHandler);
-
     return () => {
       container.removeEventListener("mousemove", mouseMoveHandler);
       container.removeEventListener("mousedown", mouseDownHandler);
     };
-  }, [shouldStart, onDragStart, onDragEnd, onSelection, reset]);
+  }, [onEnabled, onDragStart, onDragEnd, onSelection, reset]);
+
+  const computeStyle = useMemo(() => {
+    if (startCoords && endCoords) {
+      const rects = getBoundingRect(startCoords, endCoords);
+      return {
+        borderWidth: 1,
+        borderStyle: "dashed",
+        borderColor: "#333",
+        backgroundColor: getSelectionColor(),
+        mixBlendMode: "multiply",
+        position: "absolute",
+        ...rects,
+      } as CSSProperties;
+    }
+    return undefined;
+  }, [startCoords, endCoords, getSelectionColor]);
 
   return (
-    <div ref={rootRef}>
-      {start && end && (
-        <div
-          className={styles.mouseSelection}
-          style={getBoundingRect(start, end)}
-        />
-      )}
+    <div ref={rootRef} className="area-selection-container">
+      {startCoords && endCoords && <div style={computeStyle} />}
     </div>
   );
 }

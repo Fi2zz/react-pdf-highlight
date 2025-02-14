@@ -1,8 +1,8 @@
 {
-  "name": "react-pdf-highlighter",
-  "version": "8.0.0-rc.0",
+  "name": "react-pdf-highlight",
+  "version": "1.0.0",
   "description": "Set of React components for PDF annotation",
-  "author": "Artem Tyurin <artem.tyurin@gmail.com>",
+  "author": "Fi2zz <wenjingbiaoi@qq.com>",
   "license": "MIT",
   "keywords": [
     "pdf",
@@ -17,49 +17,37 @@
   ],
   "type": "module",
   "types": "./dist/index.d.ts",
-  "main": "./dist/src/index.js",
-  "style": "./dist/style.css",
+  "main": "./dist/index.js",
   "scripts": {
-    "start": "npm run dev",
-    "dev": "vite build && (cd ./example && vite)",
-    "build": "npm run clean && npm run compile && vite build && npm run build:example",
-    "compile": "tsc --noEmit && (cd ./example && tsc --noEmit)",
-    "build:example": "vite build && (cd ./example && vite build)",
-    "test": "npm run build && npm run lint && npm run test:e2e",
-    "test:e2e": "playwright test",
-    "format": "biome format --write",
-    "lint": "biome check",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "npm run build"
+    "vite": "vite",
+    "build": "rm -rf dist && tsc -p ./tsconfig.npm.json  && rm -rf dist/types.js && vite build"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.0.6",
     "pdfjs-dist": "4.4.168",
     "react-rnd": "^10.4.11",
-    "ts-debounce": "^4.0.0"
+    "ts-debounce": "^4.0.0",
+    "typedoc": "^0.27.7"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/agentcooper/react-pdf-highlighter.git"
+    "url": "git+https://github.com/Fi2zz/react-pdf-highlight.git"
   },
   "bugs": {
-    "url": "https://github.com/agentcooper/react-pdf-highlighter/issues"
+    "url": "https://github.com/Fi2zz/react-pdf-highlight/issues"
   },
   "devDependencies": {
-    "@biomejs/biome": "1.9.0",
-    "@playwright/test": "^1.45.1",
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "playwright": "^1.45.1",
-    "postcss-import": "^16.1.0",
+    "tailwindcss": "^4.0.3",
     "typescript": "^5.6.2",
-    "vite": "^5.3.3",
-    "vite-plugin-dts": "^4.1.1"
+    "vite": "^6.1.0"
   },
-  "homepage": "https://github.com/agentcooper/react-pdf-highlighter#readme"
+  "homepage": "https://github.com/Fi2zz/react-pdf-highlight#readme"
 }

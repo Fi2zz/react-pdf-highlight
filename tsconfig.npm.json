@@ -1,0 +1,23 @@
+{
+  "exclude": ["node_modules"],
+  "include": ["./src/components/*.tsx", "./src/index.ts", "./src/lib/*.ts"],
+  "compilerOptions": {
+    "noCheck": false,
+    "outDir": "dist",
+    "declaration": true,
+    "jsx": "react-jsx",
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM"],
+    "moduleResolution": "Node",
+    "strict": false,
+    "sourceMap": false,
+    "esModuleInterop": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
+    "baseUrl": ".",
+    "isolatedModules": true,
+    "skipLibCheck": true
+  }
+}

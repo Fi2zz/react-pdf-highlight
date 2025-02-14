@@ -11,10 +11,10 @@ interface WIDTH_HEIGHT {
   height: number;
 }
 
-export const viewportToScaled = (
+export function viewportToScaled(
   rect: LTWHP,
-  { width, height }: WIDTH_HEIGHT,
-): Scaled => {
+  { width, height }: WIDTH_HEIGHT
+): Scaled {
   return {
     x1: rect.left,
     y1: rect.top,
@@ -24,12 +24,11 @@ export const viewportToScaled = (
 
     width,
     height,
-
     pageNumber: rect.pageNumber,
   };
-};
+}
 
-const pdfToViewport = (pdf: Scaled, viewport: Viewport): LTWHP => {
+function pdfToViewport(pdf: Scaled, viewport: Viewport): LTWHP {
   const [x1, y1, x2, y2] = viewport.convertToViewportRectangle([
     pdf.x1,
     pdf.y1,
@@ -46,13 +45,13 @@ const pdfToViewport = (pdf: Scaled, viewport: Viewport): LTWHP => {
 
     pageNumber: pdf.pageNumber,
   };
-};
+}
 
-export const scaledToViewport = (
+export function scaledToViewport(
   scaled: Scaled,
   viewport: Viewport,
-  usePdfCoordinates = false,
-): LTWHP => {
+  usePdfCoordinates = false
+): LTWHP {
   const { width, height } = viewport;
 
   if (usePdfCoordinates) {
@@ -76,4 +75,4 @@ export const scaledToViewport = (
     height: y2 - y1,
     pageNumber: scaled.pageNumber,
   };
-};
+}

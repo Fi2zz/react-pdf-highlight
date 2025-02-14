@@ -41,28 +41,31 @@ export interface Content {
 }
 
 export interface HighlightContent {
-  content: Content;
+  content?: Content;
 }
 
 export interface Comment {
   text: string;
-  emoji: string;
+  emoji?: string;
 }
 
 export interface HighlightComment {
-  comment: Comment;
-}
-
-export interface NewHighlight extends HighlightContent, HighlightComment {
-  position: ScaledPosition;
-}
-
-export interface IHighlight extends NewHighlight {
-  id: string;
+  comment?: Comment;
 }
 
 export interface ViewportHighlight extends HighlightContent, HighlightComment {
   position: Position;
+  id?: string;
+}
+
+export type HighlightType = "text" | "image";
+
+export interface IHighlight extends Omit<ViewportHighlight, "position"> {
+  id?: string;
+  position: ScaledPosition;
+  comment?: Comment;
+  content?: Content;
+  type?: HighlightType;
 }
 
 export interface Viewport {
@@ -76,3 +79,4 @@ export interface Page {
   node: HTMLElement;
   number: number;
 }
+export type Highlights = IHighlight[];
