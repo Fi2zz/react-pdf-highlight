@@ -132,4 +132,4 @@ npm install react-pdf-highlight
 
 See [`./example/src/App.tsx`](https://github.com/Fi2zz/react-pdf-highlight/blob/main/example/src/App.tsx) for the React component API example.
 
-See [demo](https://Fi2zz.github.io/react-pdf-highlight/docs/demo).
+See [demo](https://Fi2zz.github.io/react-pdf-highlight/demo).
