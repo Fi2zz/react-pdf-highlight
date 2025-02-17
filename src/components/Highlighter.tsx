@@ -40,36 +40,95 @@ const EMPTY_SCROLL_ID = "empty-scroll-id";
 export * from "../types";
 export { type ViewportHighlight };
 export type HighlighterProps = PropsWithChildren<{
+  /**
+   * Collection of highlight data
+   * @default []
+   */
   highlights: Highlights;
-  enableAreaSelection?: boolean | ((event: globalThis.MouseEvent) => boolean);
-  renderHighlightLayer: (props: {
-    highlight: ViewportHighlight;
-    pageNumber: number;
-    index: number;
-  }) => JSX.Element;
-  onSelection?: ({ position, content }: IHighlight) => JSX.Element | null;
-  selectionColor?:
-    | string
-    | (({ isScrollTo }: { isScrollTo: boolean }) => string);
 
+  /**
+   * Area selection enablement control
+   * @param event - Native mouse event
+   * @returns Boolean indicating whether area selection should be enabled
+   */
+  enableAreaSelection?: (event: globalThis.MouseEvent) => boolean;
+
+  /**
+   * Render function for highlight overlay layer
+   * @returns JSX element representing the highlight layer
+   */
+  renderHighlightLayer: () => JSX.Element;
+
+  /**
+   * Background color for highlight layers
+   * @default "rgba(255, 226, 143, 0.5)"
+   */
+  layerBackgroundColor?: string;
+  /**
+   * Background color when scrolled to a highlight
+   * @default "rgba(255, 226, 143, 0.8)"
+   */
+  layerScrolledToBackgroundColor?: string;
+
+  /**
+   * CSS selection highlight color
+   * @default "rgba(255, 226, 143, 0.5)"
+   */
+  cssSelectionColor?: string;
+
+  /**
+   * PDF viewer instance (from PDF.js)
+   */
   pdfViewer?: PDFViewer;
+
+  /**
+   * PDF document proxy instance (from PDF.js)
+   */
   pdfDocument?: PDFDocumentProxy;
 }>;
 
 export type HighlighterRef = {
+  /**
+   * Scrolls to specified highlight position
+   * @param highlight - Target highlight object containing position data
+   * @remarks
+   * Calculates scroll position based on highlight coordinates
+   * and updates viewport accordingly
+   */
   scrollTo: (highlight: IHighlight) => void;
 };
-
-const InternalHighlights: ForwardRefRenderFunction<
-  HighlighterRef,
-  HighlighterProps
-> = (props, ref) => {
-  const helpers = createHighlighterContextValue(props);
+/**
+ * Core highlighter component implementation
+ * @remarks
+ * Manages text/image highlighting within PDF viewer using PDF.js integration.
+ * Exposes scroll functionality via React forwardRef pattern.
+ *
+ * @param props - Component configuration properties
+ * @param ref - Forwarded ref for scroll control
+ *
+ * Features:
+ * - Viewport position tracking
+ * - Highlight state management
+ * - User interaction handling (pointer events, selections, keyboard)
+ * - Customizable highlight rendering
+ * - PDF document integration
+ */
+const Core: ForwardRefRenderFunction<HighlighterRef, HighlighterProps> = (
+  {
+    layerScrolledToBackgroundColor = "ff6467",
+    layerBackgroundColor = "#fce897",
+    cssSelectionColor = "#fce897",
+    renderHighlightLayer,
+    ...props
+  },
+  ref
+) => {
   const [viewportPosition, setViewportPosition] = useState<Position>();
   const [highlight, setHighlight] = useState<IHighlight>();
   const [ghostHighlight, setGhostHighlight] = useState<IHighlight>();
   const [selectionIsCollapsed, setSelectionIsCollapsed] = useState(true);
   const [scrollId, setScrollId] = useState(EMPTY_SCROLL_ID);
+  const helpers = createHighlighterContextValue(props);
   const [, _forceUpdate] = useState(0);
   const forceUpdate = () => _forceUpdate((x) => x + 1);
   const [mouseSelectionInProgress, setMouseSelectionInProgress] =
@@ -85,9 +144,7 @@ const InternalHighlights: ForwardRefRenderFunction<
   ) => {
     setViewportPosition(viewportPosition);
     setHighlight(highlight as unknown as IHighlight);
-    // props.onSelection?.(highlight as unknown as IHighlight);
   };
-
   function clearState() {
     setGhostHighlight(undefined);
     setViewportPosition(undefined);
@@ -122,11 +179,8 @@ const InternalHighlights: ForwardRefRenderFunction<
 
   function onEnableAreaSelection(event: globalThis.MouseEvent) {
     let enabled = false;
-    const enableAreaSelection = props.enableAreaSelection;
-    if (typeof enableAreaSelection === "boolean")
-      enabled = enableAreaSelection as boolean;
-    else if (typeof enableAreaSelection == "function")
-      enabled = enableAreaSelection(event);
+    if (typeof props.enableAreaSelection == "function")
+      enabled = props.enableAreaSelection?.(event);
     return (
       enabled &&
       event.target instanceof Element &&
@@ -192,7 +246,6 @@ const InternalHighlights: ForwardRefRenderFunction<
 
     if (pdfViewer) {
       const { ownerDocument } = pdfViewer.container;
-
       pdfViewer.container.addEventListener("pointerdown", handlePointerDown);
       pdfViewer.eventBus.on("textlayerrendered", forceUpdate);
       ownerDocument.addEventListener("keydown", onKeyDown);
@@ -203,7 +256,6 @@ const InternalHighlights: ForwardRefRenderFunction<
           "pointerdown",
           handlePointerDown
         );
-
         ownerDocument.removeEventListener("keydown", onKeyDown);
         ownerDocument.removeEventListener(
           "selectionchange",
@@ -212,20 +264,6 @@ const InternalHighlights: ForwardRefRenderFunction<
       };
     }
   }, [props.pdfViewer]);
-
-  const getSelectionColor = useCallback(
-    (viewportHighlight?: ViewportHighlight) => {
-      const isScrollTo = viewportHighlight?.id == scrollId;
-      const { selectionColor } = props;
-      if (typeof selectionColor == "function")
-        return selectionColor({ isScrollTo });
-      if (isScrollTo) return "#ff6467";
-      return (selectionColor || "#fce897") as string;
-    },
-    [scrollId]
-  );
-
-  helpers.getSelectionColor = getSelectionColor;
 
   const scrollTo = (highlight: IHighlight) => {
     const position = highlight.position;
@@ -252,52 +290,65 @@ const InternalHighlights: ForwardRefRenderFunction<
     clearState();
   }
 
-  useImperativeHandle(ref, () => {
+  const backgroundColor = useCallback(
+    (id: string) =>
+      id == scrollId ? layerScrolledToBackgroundColor : layerBackgroundColor,
+    [scrollId, layerBackgroundColor, layerScrolledToBackgroundColor]
+  );
+
+  const highlightContext = useMemo(() => {
+    if (!highlight) return null;
     return {
-      scrollTo,
+      onShow: () => setGhostHighlight(highlight!),
+      onHide: () => clearState(),
+      highlight,
     };
-  });
+  }, [highlight, setGhostHighlight, clearState]);
 
-  const highlightValue = {
-    onShow: () => setGhostHighlight(highlight!),
-    onHide: () => clearState(),
-    highlight: highlight!,
-  };
-
+  useImperativeHandle(ref, () => ({ scrollTo }));
   return (
     <HighlighterProvider value={helpers}>
-      <style>{buildStyle(getSelectionColor())}</style>
+      <style>{buildStyle(cssSelectionColor || layerBackgroundColor)}</style>
       <HighlightLayers
         highlights={highlights}
         onMouseOver={onMouseOverHighlightLayer}
+        backgroundColor={(hid: string) => backgroundColor(hid)}
+        renderHighlightLayer={renderHighlightLayer}
       />
       <MouseSelection
         onEnabled={onEnableAreaSelection}
         onChange={setMouseSelectionInProgress}
         onSelection={onMouseSelection}
       />
-      {highlight && (
-        <HighlightProvider value={highlightValue}>
-          <Positioner
-            viewporPosition={viewportPosition!}
-            children={props.children}
-            helpers={helpers}
-          />
-        </HighlightProvider>
-      )}
+      <HighlightProvider value={highlightContext}>
+        <Positioner position={viewportPosition!} children={props.children} />
+      </HighlightProvider>
     </HighlighterProvider>
   );
 };
 
-export const Highlighter = forwardRef(InternalHighlights);
+export const Highlighter = forwardRef(Core);
 
+/**
+ * Groups highlights by their respective page numbers, including a ghost highlight.
+ *
+ * This function takes an array of highlights and a ghost highlight, combines them,
+ * filters out any falsy values, and then organizes the highlights into groups based
+ * on the page number. Each group is an array of highlights that appear on the same page.
+ *
+ * @param highlights - An array of IHighlight objects representing the highlights to be grouped.
+ * @param ghostHighlight - An IHighlight object representing a ghost highlight to be included in grouping.
+ * @returns An object where each key is a page number (as a string) and each value is an array of IHighlight objects on that page.
+ */
 function groupHighlightsByPage(
-  highlights: Array<IHighlight>,
-  ghost: IHighlight
+  highlights: Highlights,
+  ghostHighlight: IHighlight
 ): {
   [pageNumber: string]: Array<IHighlight>;
 } {
-  const allHighlights = [...highlights, ghost].filter(Boolean) as IHighlight[];
+  const allHighlights = [...highlights, ghostHighlight].filter(
+    Boolean
+  ) as IHighlight[];
   const pageNumbers = new Set<number>();
   for (const highlight of allHighlights) {
     pageNumbers.add(highlight.position.pageNumber);
@@ -336,13 +387,16 @@ function groupHighlightsByPage(
   return groupedHighlights;
 }
 
-function buildStyle(selectionColor: string) {
+function buildStyle(backgroundColor: string) {
   return `
+.pdfViewer.disabled-selection{ pointer-events:none; user-select:none }  
 .annotationLayer {  position: absolute;  top: 0;  z-index: 3;}
 .textLayer { z-index: 2;  opacity: 1;  mix-blend-mode: multiply;  display: flex;}
 .textLayer > div:not(.PdfHighlighter-layer-root):not(.PdfHighlighter-layer) {  opacity: 1; mix-blend-mode: multiply;}
-.textLayer ::selection { background: ${selectionColor};}
+.area-selection-rect  { background-color: ${backgroundColor}; border:1px dashed #333; mix-blend-mode: multiply; position:absolute}
+.textLayer ::selection { background-color: ${backgroundColor};}
 .textLayer .PdfHighlighter-layer { position:absolute; cursor:pointer ; opacity:1 }
+.textLayer .highlight-image-layer {border:1px dashed #333; }
 #PdfHighlighter-positioner{position:absolute;z-index:6}
 `.trim();
 }

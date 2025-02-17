@@ -6,43 +6,41 @@ import type {
 import { PDFLinkService } from "pdfjs-dist/web/pdf_viewer.mjs";
 import {
   cloneElement,
+  CSSProperties,
   HTMLAttributes,
   PropsWithChildren,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
-
 import { findFirstReactElement } from "./findFirstReactElement";
-
 import { debounce } from "ts-debounce";
 import { PdfViewerContext, usePdfViewer } from "./usePdfViewer";
 export { usePdfViewer };
 /**
  * PdfViewer component is responsible for rendering a PDF document within a React application.
- * It utilizes the `pdfjs-dist` library to handle PDF rendering and provides various options
- * for customization such as scaling, event handling, and context menu management.
+ * It utilizes the `pdfjs-dist` library to handle PDF rendering and provides a customizable viewer.
  *
  * @param {Object} props - Component props.
- * @param {React.ReactNode} props.children - Child components to render within the PdfViewer.
- * @param {PDFViewerOptions} [props.pdfViewerOptions] - Options to configure the PDF viewer.
+ * @param {PDFDocumentProxy} [props.pdfDocument] - The PDF document to be displayed.
+ * @param {PDFViewerOptions} [props.pdfViewerOptions] - Options for configuring the PDF viewer.
  * @param {string} [props.pdfScaleValue] - The scale value for the PDF viewer.
- * @param {Function} [props.onScroll] - Callback function for scroll events.
- * @param {Function} [props.onContextMenu] - Callback function for context menu events.
- * @param {Function} [props.onPointerDown] - Callback function for pointer down events.
- * @param {PDFDocumentProxy} props.pdfDocument - The PDF document to render.
- * @param {string} [props.className] - Optional CSS class name for styling.
- * @returns {JSX.Element} - Rendered PdfViewer component.
+ * @param {Function} [props.onScroll] - Callback function for handling scroll events.
+ * @param {React.ReactNode} [props.children] - Child components to be rendered within the PDF viewer.
+ * @returns {JSX.Element} - Rendered PDF viewer component.
+ *
+ * @example
+ * <PdfViewer pdfDocument={pdfDoc} pdfScaleValue="1.5" onScroll={handleScroll} className="custom-pdf-viewer">
+ *   <CustomComponent />
+ * </PdfViewer>
  */
 export function PdfViewer({
-  children,
+  pdfDocument,
   pdfViewerOptions,
   pdfScaleValue,
   onScroll,
-  onContextMenu,
-  onPointerDown,
-  pdfDocument,
-  className,
+  ...props
 }: PropsWithChildren<
   HTMLAttributes<HTMLDivElement> & {
     pdfViewerOptions?: PDFViewerOptions;
@@ -72,7 +70,7 @@ export function PdfViewer({
           viewerOptions.textLayerMode = 2;
           viewerOptions.removePageBorders = true;
           const pdfViewer = new PDFViewer(viewerOptions as PDFViewerOptions);
-          pdfViewer.currentScaleValue = pdfScaleValue || "auto";
+          // pdfViewer.currentScaleValue = pdfScaleValue || "auto";
           linkService.setViewer(pdfViewer);
           linkService.setDocument(pdfDocument);
           pdfViewer.setDocument(pdfDocument!);
@@ -82,20 +80,19 @@ export function PdfViewer({
     }
   }, [pdfViewerOptions, container, pdfScaleValue]);
   useEffect(initialize, [container]);
+
+  const onPdfScaleValue = useCallback(() => {
+    pdfViewer!.currentScaleValue = pdfScaleValue! || "auto"; //"page-width";
+  }, [pdfScaleValue, pdfViewer]);
+
   useEffect(() => {
-    if (pdfViewer && pdfScaleValue) {
-      const onPdfScaleValue = () =>
-        (pdfViewer!.currentScaleValue = pdfScaleValue! || "auto");
+    if (pdfViewer) {
       pdfViewer.eventBus.on("pagesinit", onPdfScaleValue);
       return () => {
         pdfViewer.eventBus.off("pagesinit", onPdfScaleValue);
       };
     }
-  }, [pdfViewer, pdfScaleValue]);
-
-  const onPdfScaleValue = useCallback(() => {
-    pdfViewer!.currentScaleValue = pdfScaleValue! || "auto"; //"page-width";
-  }, [pdfScaleValue, pdfViewer]);
+  }, [pdfViewer, pdfScaleValue, onPdfScaleValue]);
 
   const onResize = debounce(() => onPdfScaleValue(), 500) as () => void;
   useEffect(() => {
@@ -114,11 +111,18 @@ export function PdfViewer({
     }
     return () => {};
   }, [pdfViewer, onScroll, onResize]);
-
-  const child = findFirstReactElement(children);
-  const _class = `pdfViewer-container ${
-    typeof className == "string" ? className : ""
-  }`;
+  const child = findFirstReactElement(props.children);
+  const _class = `pdfViewer-container ${props.className || ""}`;
+  const style = useMemo(
+    () =>
+      Object.assign({}, props.style, {
+        position: "absolute",
+        width: "100%",
+        height: "100%",
+        overflow: "auto",
+      }) as CSSProperties,
+    [props.style]
+  );
 
   return (
     <PdfViewerContext.Provider
@@ -127,12 +131,11 @@ export function PdfViewer({
         pdfViewer,
       }}
     >
-      <style>{css()}</style>
       <div
+        {...props}
+        style={style}
         className={_class}
         ref={(el) => setContainer(el!)}
-        onPointerDown={onPointerDown}
-        onContextMenu={onContextMenu}
       >
         <div className="pdfViewer" />
         {cloneElement(
@@ -142,11 +145,4 @@ export function PdfViewer({
       </div>
     </PdfViewerContext.Provider>
   );
-}
-
-function css() {
-  return `
-  .pdfViewer.disabled-selection{ pointer-events:none; user-select:none }  
-  .pdfViewer-container{position:absolute; width:100%;height:100%;overflow:auto}
- `.trim();
 }

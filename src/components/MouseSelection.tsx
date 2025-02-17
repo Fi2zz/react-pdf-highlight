@@ -1,14 +1,7 @@
-import {
-  CSSProperties,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isHTMLElement } from "../lib/pdfjs-dom.js";
 import type { LTWH } from "../types.js";
-import { useHighlighter, useSelectionColor } from "./Context.js";
+import { useHighlighter } from "./Context.js";
 interface Coords {
   x: number;
   y: number;
@@ -54,8 +47,6 @@ export function MouseSelection({
   const startRef = useRef(startCoords);
   const lockedRef = useRef(locked);
   const { pdfViewer } = useHighlighter();
-
-  const getSelectionColor = useSelectionColor();
   function toggleTextSelection(flag: boolean) {
     if (!pdfViewer) return;
     const viewer = pdfViewer.viewer! as HTMLDivElement;
@@ -113,7 +104,9 @@ export function MouseSelection({
     };
 
     const mouseDownHandler = (event: MouseEvent) => {
+      reset();
       if (!onEnabled(event)) return;
+
       const startTarget = event.target as HTMLElement;
       if (!(startTarget instanceof Element) || !isHTMLElement(startTarget)) {
         return;
@@ -167,24 +160,15 @@ export function MouseSelection({
   }, [onEnabled, onDragStart, onDragEnd, onSelection, reset]);
 
   const computeStyle = useMemo(() => {
-    if (startCoords && endCoords) {
-      const rects = getBoundingRect(startCoords, endCoords);
-      return {
-        borderWidth: 1,
-        borderStyle: "dashed",
-        borderColor: "#333",
-        backgroundColor: getSelectionColor(),
-        mixBlendMode: "multiply",
-        position: "absolute",
-        ...rects,
-      } as CSSProperties;
-    }
-    return undefined;
-  }, [startCoords, endCoords, getSelectionColor]);
+    if (!startCoords || !endCoords) return { display: "none" };
+    return getBoundingRect(startCoords, endCoords);
+  }, [startCoords, endCoords]);
 
   return (
     <div ref={rootRef} className="area-selection-container">
-      {startCoords && endCoords && <div style={computeStyle} />}
+      {startCoords && endCoords && (
+        <div style={computeStyle} className="area-selection-rect" />
+      )}
     </div>
   );
 }

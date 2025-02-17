@@ -18,7 +18,6 @@ export type TypeHighlighter = {
   getPageView: (index: number) => any;
   getPageViewport: (index: number) => PageViewport;
   convertToPdfPoint: (pageNumber: number, x: number, y: number) => number[];
-  getSelectionColor: (...args: any[]) => string;
   scaledToViewport: (
     pageNumber: number,
     scaled: Scaled,
@@ -26,10 +25,7 @@ export type TypeHighlighter = {
   ) => LTWHP;
   pdfDocument?: PDFDocumentProxy;
   pdfViewer: PDFViewer | null;
-
-  props: HighlighterProps;
 };
-
 function createWithViewer(viewer: PDFViewer | null) {
   return (fn: (...args: any[]) => any) =>
     (...args: any[]) =>
@@ -102,7 +98,7 @@ function viewportPositionToScaled(
 /**
  * Creates a set of helper functions for interacting with a PDFViewer instance.
  *
- * @param pdfViewer - The PDFViewer instance to create helpers for.
+ * @param {Partial<HighlighterProps>} props - The PDFViewer instance to create helpers for.
  * @returns An object containing various helper functions for the PDFViewer.
  *
  * The returned object includes functions for:
@@ -117,10 +113,12 @@ function viewportPositionToScaled(
  * facilitating complex interactions and manipulations of PDF documents within a React application.
  */
 
-export function createHighlighterContextValue(props: HighlighterProps) {
+export function createHighlighterContextValue(
+  props: Partial<HighlighterProps>
+) {
   const withViewer = createWithViewer(props.pdfViewer!);
-  function getPageView(viewer: PDFViewer, index: number) {
-    return viewer!.getPageView(index);
+  function getPageView(pdfViewer: PDFViewer, index: number) {
+    return pdfViewer.getPageView(index);
   }
   function scrollPageIntoView(
     viewer: PDFViewer,
@@ -175,33 +173,42 @@ export function createHighlighterContextValue(props: HighlighterProps) {
     scaledToViewport: withViewer(scaledToViewport),
     pdfViewer: props.pdfViewer,
     pdfDocument: props.pdfDocument,
-    props,
   } as TypeHighlighter;
 }
-
 type TypeHighlight = {
   onShow: () => void;
   onHide: () => void;
   highlight: IHighlight;
 };
 
+type TypeLayer = {
+  onMouseOver?: (event: React.MouseEvent<HTMLDivElement>) => void;
+  highlight?: IHighlight;
+  backgroundColor?: string;
+  index: number;
+  pageNumber: number;
+};
+
 type ProviderProp = PropsWithChildren<{
-  value: TypeHighlight | TypeHighlighter | null;
+  value: TypeHighlight | TypeHighlighter | TypeLayer | null;
 }>;
 
+function createProvider(Context: any, hiddenWhenNoValue = false) {
+  return ({ value, children }: ProviderProp) => {
+    if (hiddenWhenNoValue && !value) return null;
 
-// function create(){}
-
-function createProvider(Context: any) {
-  return ({ value, children }: ProviderProp) => (
-    <Context.Provider value={value} children={children} />
-  );
+    return <Context.Provider value={value} children={children} />;
+  };
 }
+
 const HighlighterContext = createContext<TypeHighlighter | null>(null);
-const HighlightContext = createContext<TypeHighlight | null>(null);
-export const useHighlight = () => useContext(HighlightContext);
-export const useHighlighter = () => useContext(HighlighterContext)!;
-export const useHighlighterProps = () => useHighlighter().props;
-export const useSelectionColor = () => useHighlighter()!.getSelectionColor;
 export const HighlighterProvider = createProvider(HighlighterContext);
-export const HighlightProvider = createProvider(HighlightContext);
+export const useHighlighter = () => useContext(HighlighterContext)!;
+
+const HighlightContext = createContext<TypeHighlight | null>(null);
+export const HighlightProvider = createProvider(HighlightContext, true);
+export const useHighlight = () => useContext(HighlightContext);
+
+const LayerContext = createContext<TypeLayer | null>(null);
+export const LayerProvider = createProvider(LayerContext);
+export const useLayer = () => useContext(LayerContext);

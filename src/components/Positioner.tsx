@@ -9,27 +9,26 @@ import {
 } from "react";
 
 import type { Position } from "../types";
+import { useHighlighter } from "./Context";
 function clamp(value: number, left: number, right: number) {
   return Math.min(Math.max(value, left), right);
 }
+
+export type PositionerProps = {
+  position: Position;
+  children: ReactNode;
+};
 /**
  * Positioner component is responsible for positioning highlighter elements on the PDF viewer.
  * It calculates the position based on the viewport position of the highlighted text and the current scroll position.
  *
  * @param {Object} props - The properties for the Positioner component.
- * @param {Position} props.viewporPosition - The position of the highlighted text in the viewport.
+ * @param {Position} props.position - The position of the highlighted text in the viewport.
  * @param {ReactNode} props.children - The children elements to be rendered within the Positioner.
  * @returns {JSX.Element | null} - Returns the positioned div containing the children if viewporPosition exists, otherwise returns null.
  */
-export function Positioner({
-  viewporPosition,
-  children,
-  helpers,
-}: {
-  viewporPosition: Position;
-  children: ReactNode;
-  helpers: any;
-}) {
+export function Positioner({ position, children }: PositionerProps) {
+  const helpers = useHighlighter();
   const [height, setHeight] = useState(0);
   const [width, setWidth] = useState(0);
   const div = useRef<HTMLDivElement | null>(null);
@@ -41,14 +40,14 @@ export function Positioner({
   }, []);
 
   const style = useMemo(() => {
-    if (!viewporPosition) return undefined;
+    if (!position) return undefined;
     const calculating = width === 0 && height === 0;
     const style: Record<string, string | number> = {
       visibility: calculating ? "hidden" : "visible",
     };
     const scrollTop = helpers.pdfViewer?.container.scrollTop!;
-    const { boundingRect } = viewporPosition!;
-    const pageNumber = boundingRect.pageNumber || viewporPosition.pageNumber;
+    const { boundingRect } = position!;
+    const pageNumber = boundingRect.pageNumber || position.pageNumber;
     const node = helpers.getPageView(pageNumber - 1)!.div;
     const pageBoundingRect = node.getBoundingClientRect();
     const partial = {
@@ -64,12 +63,12 @@ export function Positioner({
       pageBoundingRect.width - width
     );
     return style;
-  }, [viewporPosition, height, width, helpers]);
+  }, [position, height, width, helpers]);
 
   useEffect(() => {
     setTimeout(updatePosition, 0);
   }, [updatePosition]);
-  if (!viewporPosition) return null;
+  if (!position) return null;
   return (
     <div
       id="PdfHighlighter-positioner"

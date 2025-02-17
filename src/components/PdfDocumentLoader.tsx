@@ -47,16 +47,30 @@ type PdfLoaderProps = Partial<DocumentInitParameters> & {
 
 const defaultWorker = `https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs`;
 /**
- * PdfLoader is a React component that handles the loading of a PDF document.
- * It manages the state of the PDF document, progress of the loading process,
- * and error handling. The component accepts props to customize behavior,
- * such as onProgress callbacks, error messages, and children components to render
- * before the PDF is fully loaded.
+ * PdfDocumentLoader is a React component responsible for loading and managing a PDF document.
+ * It handles the asynchronous loading process, displays loading progress, and manages errors.
  *
- * @param {PdfLoaderProps} props - The properties for the PdfLoader component.
- * @returns {JSX.Element} The rendered PdfLoader component.
+ * Props:
+ * - pdfLoaderProps: An object containing properties to configure the PDF loading behavior.
+ *   - url: The URL of the PDF file to load.
+ *   - data: The binary data of the PDF file to load.
+ *   - onProgress: A callback function to be called with the loading progress.
+ *   - beforeLoaded: A React element to display before the PDF is fully loaded.
+ *   - errorMessage: A React element to display if an error occurs during loading.
+ *
+ * State:
+ * - pdfDocument: The loaded PDF document proxy, or null if not loaded.
+ * - error: An error object if loading fails, or null if successful.
+ * - progress: An object containing the number of bytes loaded and the total number of bytes.
+ *
+ * The component uses the `useEffect` hook to handle side effects such as loading the PDF
+ * when the component mounts or when the `url` or `data` prop changes. It also cleans up
+ * any existing PDF document when the component unmounts or when the props change.
+ *
+ * The component renders a `PdfDocument.Provider` that wraps its children, providing the
+ * loaded PDF document proxy to them via React context.
  */
-export function PdfLoader(props: PdfLoaderProps) {
+export function PdfDocumentLoader(props: PdfLoaderProps) {
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const reset = () => {
@@ -70,7 +84,6 @@ export function PdfLoader(props: PdfLoaderProps) {
   });
 
   const destroy = () => pdfDocument?.destroy();
-
   const onLoading = (
     { loaded, total }: OnProgressParameters,
     pdfDocument?: PDFDocumentProxy

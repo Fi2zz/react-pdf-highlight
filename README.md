@@ -29,14 +29,13 @@ import {
   type Highlights,
   type IHighlight,
   useHighlight,
+  useLayer,
 } from "react-pdf-highlight";
 import "pdfjs-dist/web/pdf_viewer.css";
 function App() {
   const highlights: Highlights = [];
   const pdfUrl: string = "/path/to/some.pdf";
-  const renderHighlightLayer = ({ highlight }: any) => (
-    <HighlightLayer highlight={highlight} type={highlight.type} />
-  );
+
   const selectionColor = ({ isScrollTo }) => {
     !isScrollTo ? "#fce897" : "#ff6467";
   };
@@ -46,21 +45,33 @@ function App() {
     highlighterRef.current.scrollTo(hightlight);
   };
 
+
   return (
     <PdfLoader url={pdfUrl}>
       <PdfViewer>
         <Highlighter
           ref={highlighterRef}
           highlights={highlights}
-          selectionColor={selectionColor}
-          enableAreaSelection={(event) => event.altKey || "your boolean state"}
-          renderHighlightLayer={renderHighlightLayer}
+          enableAreaSelection={(event) => event.altKey}
+          {/* *:selection{ background-color: ${selectionColor}}  */}
+          cssSelectionColor={selectionColor}
+          layerBackgroundColor={"#fce897"} // default
+          layerScrolledToBackgroundColor={"#ff6467"} //default
+          {/* renderHighlightLayer={  ()=> <HighlightLayer/>} */}
+          renderHighlightLayer={() => <CustomHighlightLayer />}
         >
           <HighlightEditor />
         </Highlighter>
       </PdfViewer>
     </PdfLoader>
   );
+}
+
+function CustomHighlightLayer() {
+  const { highlight, index, pageNumber, onMouseOver, backgroundColor } =
+    useLayer();
+  //  your own component codes
+    return null
 }
 
 function HighlightEditor() {
