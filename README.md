@@ -113,7 +113,6 @@ function HighlightEditor() {
       </div>
     );
   }
-
   return (
     <div>
       <textarea value={comment.text} onChange={onChangeText} />
